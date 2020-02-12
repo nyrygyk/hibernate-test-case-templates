@@ -19,8 +19,14 @@ import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.hibernate.cfg.AvailableSettings;
 import org.hibernate.cfg.Configuration;
+import org.hibernate.query.Query;
 import org.hibernate.testing.junit4.BaseCoreFunctionalTestCase;
 import org.junit.Test;
+
+import java.util.List;
+
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.core.Is.is;
 
 /**
  * This template demonstrates how to develop a test case for Hibernate ORM, using its built-in unit test framework.
@@ -33,47 +39,67 @@ import org.junit.Test;
  */
 public class ORMUnitTestCase extends BaseCoreFunctionalTestCase {
 
-	// Add your entities here.
-	@Override
-	protected Class[] getAnnotatedClasses() {
-		return new Class[] {
-//				Foo.class,
-//				Bar.class
-		};
-	}
+    // Add your entities here.
+    @Override
+    protected Class[] getAnnotatedClasses() {
+        return new Class[]{
+                PvDb.class,
+                PvDbTO.class,
+                PvDbCommon.class
+        };
+    }
 
-	// If you use *.hbm.xml mappings, instead of annotations, add the mappings here.
-	@Override
-	protected String[] getMappings() {
-		return new String[] {
-//				"Foo.hbm.xml",
-//				"Bar.hbm.xml"
-		};
-	}
-	// If those mappings reside somewhere other than resources/org/hibernate/test, change this.
-	@Override
-	protected String getBaseForMappings() {
-		return "org/hibernate/test/";
-	}
+    // If you use *.hbm.xml mappings, instead of annotations, add the mappings here.
+    @Override
+    protected String[] getMappings() {
+        return new String[]{
+        };
+    }
 
-	// Add in any settings that are specific to your test.  See resources/hibernate.properties for the defaults.
-	@Override
-	protected void configure(Configuration configuration) {
-		super.configure( configuration );
+    // If those mappings reside somewhere other than resources/org/hibernate/test, change this.
+    @Override
+    protected String getBaseForMappings() {
+        return "org/hibernate/test/";
+    }
 
-		configuration.setProperty( AvailableSettings.SHOW_SQL, Boolean.TRUE.toString() );
-		configuration.setProperty( AvailableSettings.FORMAT_SQL, Boolean.TRUE.toString() );
-		//configuration.setProperty( AvailableSettings.GENERATE_STATISTICS, "true" );
-	}
+    // Add in any settings that are specific to your test.  See resources/hibernate.properties for the defaults.
+    @Override
+    protected void configure(Configuration configuration) {
+        super.configure(configuration);
 
-	// Add your tests, using standard JUnit.
-	@Test
-	public void hhh123Test() throws Exception {
-		// BaseCoreFunctionalTestCase automatically creates the SessionFactory and provides the Session.
-		Session s = openSession();
-		Transaction tx = s.beginTransaction();
-		// Do stuff...
-		tx.commit();
-		s.close();
-	}
+        configuration.setProperty(AvailableSettings.SHOW_SQL, Boolean.TRUE.toString());
+        configuration.setProperty(AvailableSettings.FORMAT_SQL, Boolean.TRUE.toString());
+    }
+
+    // Add your tests, using standard JUnit.
+    @Test
+    public void hhh13860Test() {
+        // BaseCoreFunctionalTestCase automatically creates the SessionFactory and provides the Session.
+        Session s = openSession();
+        Transaction tx = s.beginTransaction();
+
+        PvDb pvDb = new PvDb();
+        pvDb.setId(1);
+        s.persist(pvDb);
+
+        String hql = "update PvDb r set r.externalId = :externalId where r.id = :id";
+        Query query = s.createQuery(hql);
+        query.setParameter("externalId", "GG-PRQ-43985");
+        query.setParameter("id", 1);
+        query.executeUpdate();
+
+        tx.commit();
+
+        Query<String> externalIdQuery = s.createQuery("select externalId from PvDb where id = 1", String.class);
+
+        List<String> actualResults = externalIdQuery.list();
+
+        // the following assertions are working, but a warning is thrown on the log
+        // ("HHH000487: The query: [update PvDb r set r.externalId = :externalId where r.id = :id] attempts to update an
+        // immutable entity: [PV_DB]")
+        assertThat(actualResults.size(), is(1));
+        assertThat(actualResults.get(0), is("GG-PRQ-43985"));
+
+        s.close();
+    }
 }
